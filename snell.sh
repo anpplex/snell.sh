@@ -51,7 +51,7 @@ select_snell_version() {
 get_latest_snell_v4_version() {
     latest_version=$(curl -s https://manual.nssurge.com/others/snell.html | grep -oP 'snell-server-v\K4\.[0-9]+\.[0-9]+' | head -n 1)
     if [ -z "$latest_version" ]; then
-        latest_version=$(curl -s https://kb.nssurge.com/surge-knowledge-base/zh/release-notes/snell | grep -oP 'snell-server-v\K4\.[0-9]+\.[0-9]+' | head -n 1)
+         latest_version=$(curl -s https://kb.nssurge.com/surge-knowledge-base/zh/release-notes/snell | grep -oP 'snell-server-v\K4\.[0-9]+\.[0-9]+' | head -n 1)
     fi
     if [ -n "$latest_version" ]; then
         echo "v${latest_version}"
@@ -65,7 +65,7 @@ get_latest_snell_v5_version() {
     # 先抓 beta 版
     v5_beta=$(curl -s https://manual.nssurge.com/others/snell.html | grep -oP 'snell-server-v\K5\.[0-9]+\.[0-9]+b[0-9]+' | head -n 1)
     if [ -z "$v5_beta" ]; then
-        v5_beta=$(curl -s https://kb.nssurge.com/surge-knowledge-base/zh/release-notes/snell | grep -oP 'snell-server-v\K5\.[0-9]+\.[0-9]+b[0-9]+' | head -n 1)
+         v5_beta=$(curl -s https://kb.nssurge.com/surge-knowledge-base/zh/release-notes/snell | grep -oP 'snell-server-v\K5\.[0-9]+\.[0-9]+b[0-9]+' | head -n 1)
     fi
     if [ -n "$v5_beta" ]; then
         echo "v${v5_beta}"
@@ -74,7 +74,7 @@ get_latest_snell_v5_version() {
     # 再抓正式版，过滤掉带 b 的 beta 版本
     v5_release=$(curl -s https://manual.nssurge.com/others/snell.html | grep -oP 'snell-server-v\K5\.[0-9]+\.[0-9]+[a-z0-9]*' | grep -v b | head -n 1)
     if [ -z "$v5_release" ]; then
-        v5_release=$(curl -s https://kb.nssurge.com/surge-knowledge-base/zh/release-notes/snell | grep -oP 'snell-server-v\K5\.[0-9]+\.[0-9]+[a-z0-9]*' | grep -v b | head -n 1)
+         v5_release=$(curl -s https://kb.nssurge.com/surge-knowledge-base/zh/release-notes/snell | grep -oP 'snell-server-v\K5\.[0-9]+\.[0-9]+[a-z0-9]*' | grep -v b | head -n 1)
     fi
     if [ -n "$v5_release" ]; then
         echo "v${v5_release}"
@@ -362,7 +362,7 @@ wait_for_apt() {
     done
 }
 
-# 检查是否以 root 权限运行
+# 检查是��以 root 权限运行
 check_root() {
     if [ "$(id -u)" != "0" ]; then
         echo -e "${RED}请以 root 权限运行此脚本.${RESET}"
@@ -659,29 +659,173 @@ RESET='\033[0m'
 
 # 检查是否以 root 权限运行
 if [ "$(id -u)" != "0" ]; then
-    echo -e "${RED}请以 root 权限运行此脚本${RESET}"
-    exit 1
+    # 如果不是 root，使用 sudo 重新执行此脚本
+    if command -v sudo &> /dev/null; then
+        sudo "$0" "$@"
+        exit $?
+    else
+        echo -e "${RED}请以 root 权限运行此命令${RESET}"
+        exit 1
+    fi
 fi
 
-# 下载并执行最新版本的脚本
-echo -e "${CYAN}正在获取最新版本的管理脚本...${RESET}"
-TMP_SCRIPT=$(mktemp)
-if curl -sL https://raw.githubusercontent.com/jinqians/snell.sh/main/snell.sh -o "$TMP_SCRIPT"; then
-    bash "$TMP_SCRIPT"
-    rm -f "$TMP_SCRIPT"
-else
-    echo -e "${RED}下载脚本失败，请检查网络连接。${RESET}"
-    rm -f "$TMP_SCRIPT"
-    exit 1
-fi
+# 处理命令行参数
+case "$1" in
+    # 快速查看配置
+    -c|--config)
+        # 直接显示配置，不需要下载
+        bash /usr/local/bin/snell-manager --view-config
+        ;;
+    # 查看状态
+    -s|--status)
+        bash /usr/local/bin/snell-manager --show-status
+        ;;
+    # 重启服务
+    -r|--restart)
+        bash /usr/local/bin/snell-manager --restart
+        ;;
+    # 查看日志
+    -l|--log)
+        journalctl -u snell -n 50 -f
+        ;;
+    # 帮助信息
+    -h|--help)
+        echo -e "${GREEN}Snell 快速管理命令${RESET}"
+        echo -e "\n${CYAN}用法: snell [选项]${RESET}"
+        echo -e "\n${YELLOW}选项：${RESET}"
+        echo -e "  ${GREEN}snell${RESET}              进入交互式管理菜单"
+        echo -e "  ${GREEN}snell -c, --config${RESET}     查看配置信息"
+        echo -e "  ${GREEN}snell -s, --status${RESET}     查看服务状态"
+        echo -e "  ${GREEN}snell -r, --restart${RESET}    重启服务"
+        echo -e "  ${GREEN}snell -l, --log${RESET}        查看实时日志"
+        echo -e "  ${GREEN}snell -h, --help${RESET}       显示帮助信息"
+        echo -e "\n${YELLOW}示例：${RESET}"
+        echo -e "  ${GREEN}sudo snell${RESET}             启动管理菜单"
+        echo -e "  ${GREEN}sudo snell -c${RESET}          快速查看配置"
+        echo -e "  ${GREEN}snell -s${RESET}               查看服务状态（可不用 sudo）"
+        exit 0
+        ;;
+    *)
+        # 默认进入完整管理菜单
+        echo -e "${CYAN}正在进入 Snell 管理面板...${RESET}\n"
+        # 下载并执行最新版本的脚本
+        TMP_SCRIPT=$(mktemp)
+        if curl -sL https://raw.githubusercontent.com/jinqians/snell.sh/main/snell.sh -o "$TMP_SCRIPT"; then
+            bash "$TMP_SCRIPT"
+            rm -f "$TMP_SCRIPT"
+        else
+            echo -e "${RED}下载脚本失败，请检查网络连接。${RESET}"
+            rm -f "$TMP_SCRIPT"
+            exit 1
+        fi
+        ;;
+esac
 EOFSCRIPT
     
     if [ $? -eq 0 ]; then
         chmod +x /usr/local/bin/snell
+        
+        # 创建快速命令助手脚本
+        cat > /usr/local/bin/snell-manager << 'EOFMANAGER'
+#!/bin/bash
+
+# 定义颜色代码
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
+SNELL_CONF_DIR="/etc/snell"
+INSTALL_DIR="/usr/local/bin"
+
+# 显示配置信息
+show_config() {
+    echo -e "${GREEN}Snell 配置信息:${RESET}"
+    echo -e "${CYAN}================================${RESET}"
+    
+    if [ ! -f "${SNELL_CONF_DIR}/users/snell-main.conf" ]; then
+        echo -e "${RED}Snell 未安装或配置文件不存在${RESET}"
+        return 1
+    fi
+    
+    local main_port=$(grep -E '^listen' "${SNELL_CONF_DIR}/users/snell-main.conf" | sed -n 's/.*::0:\([0-9]*\)/\1/p')
+    local main_psk=$(grep -E '^psk' "${SNELL_CONF_DIR}/users/snell-main.conf" | awk -F'=' '{print $2}' | tr -d ' ')
+    local main_ipv6=$(grep -E '^ipv6' "${SNELL_CONF_DIR}/users/snell-main.conf" | awk -F'=' '{print $2}' | tr -d ' ')
+    local main_dns=$(grep -E '^dns' "${SNELL_CONF_DIR}/users/snell-main.conf" | awk -F'=' '{print $2}' | tr -d ' ')
+    
+    echo -e "${YELLOW}主用户配置：${RESET}"
+    echo -e "  端口: ${main_port}"
+    echo -e "  PSK: ${main_psk}"
+    echo -e "  IPv6: ${main_ipv6}"
+    echo -e "  DNS: ${main_dns}"
+    echo -e "${CYAN}================================${RESET}"
+}
+
+# 显示状态信息
+show_status() {
+    echo -e "${CYAN}=============== 服务状态 ===============${RESET}"
+    if systemctl is-active --quiet snell; then
+        echo -e "${GREEN}✓ Snell 服务: 运行中${RESET}"
+    else
+        echo -e "${RED}✗ Snell 服务: 已停止${RESET}"
+    fi
+    
+    # 显示更详细的状态
+    systemctl status snell --no-pager | head -n 10
+    echo -e "${CYAN}==========================================${RESET}"
+}
+
+# 重启服务
+restart_service() {
+    echo -e "${YELLOW}正在重启 Snell 服务...${RESET}"
+    systemctl restart snell
+    sleep 2
+    if systemctl is-active --quiet snell; then
+        echo -e "${GREEN}✓ 服务重启成功${RESET}"
+    else
+        echo -e "${RED}✗ 服务重启失败${RESET}"
+        return 1
+    fi
+}
+
+# 解析参数
+case "$1" in
+    --view-config)
+        show_config
+        ;;
+    --show-status)
+        show_status
+        ;;
+    --restart)
+        if [ "$(id -u)" = "0" ]; then
+            restart_service
+        else
+            echo -e "${RED}需要 root 权限来重启服务${RESET}"
+            exit 1
+        fi
+        ;;
+    *)
+        echo -e "${RED}未知的管理命令: $1${RESET}"
+        exit 1
+        ;;
+esac
+EOFMANAGER
+        
+        chmod +x /usr/local/bin/snell-manager
+        
         if [ $? -eq 0 ]; then
-            echo -e "\n${GREEN}管理脚本安装成功！${RESET}"
-            echo -e "${YELLOW}您可以在终端输入 'snell' 进入管理菜单。${RESET}"
-            echo -e "${YELLOW}注意：需要使用 sudo snell 或以 root 身份运行。${RESET}\n"
+            echo -e "\n${GREEN}✓ 快速管理命令安装成功！${RESET}"
+            echo -e "\n${YELLOW}使用方法：${RESET}"
+            echo -e "  ${GREEN}snell${RESET}             - 进入完整管理菜单"
+            echo -e "  ${GREEN}snell -c${RESET}          - 快速查看配置"
+            echo -e "  ${GREEN}snell -s${RESET}          - 查看服务状态"
+            echo -e "  ${GREEN}snell -r${RESET}          - 重启服务"
+            echo -e "  ${GREEN}snell -l${RESET}          - 查看实时日志"
+            echo -e "  ${GREEN}snell -h${RESET}          - 查看帮助信息"
+            echo -e "\n${YELLOW}提示：${RESET}"
+            echo -e "  需要使用 ${GREEN}sudo snell${RESET} 或在 root 下运行"
+            echo -e "  查看状态无需 sudo: ${GREEN}snell -s${RESET}\n"
         else
             echo -e "\n${RED}设置脚本执行权限失败。${RESET}"
             echo -e "${YELLOW}您可以通过直接运行原脚本来管理 Snell。${RESET}\n"
@@ -894,7 +1038,7 @@ check_and_show_status() {
         
         # 显示 Snell 状态
         local total_snell_memory_mb=$(echo "scale=2; $total_snell_memory/1024" | bc)
-        printf "${GREEN}Snell 已安装${RESET}  ${YELLOW}CPU：%.2f%%${RESET}  ${YELLOW}内存：%.2f MB${RESET}  ${GREEN}运行中：${running_count}/${user_count}${RESET}\n" "$total_snell_cpu" "$total_snell_memory_mb"
+        printf "${GREEN}Snell 已安装${RESET}  ${YELLOW}CPU：%.2f%%${RESET}  ${YELLOW}内存：%.2f MB${RESET}  ${GREEN}运行中：${running_count}/${user_count}${RESET}\n" "$total_snell_cpu"
     else
         echo -e "${YELLOW}Snell 未安装${RESET}"
     fi
@@ -941,7 +1085,7 @@ check_and_show_status() {
         # 显示 ShadowTLS 状态
         if [ $stls_total -gt 0 ]; then
             local total_stls_memory_mb=$(echo "scale=2; $total_stls_memory/1024" | bc)
-            printf "${GREEN}ShadowTLS 已安装${RESET}  ${YELLOW}CPU：%.2f%%${RESET}  ${YELLOW}内存：%.2f MB${RESET}  ${GREEN}运行中：${stls_running}/${stls_total}${RESET}\n" "$total_stls_cpu" "$total_stls_memory_mb"
+            printf "${GREEN}ShadowTLS 已安装${RESET}  ${YELLOW}CPU：%.2f%%${RESET}  ${YELLOW}内存：%.2f MB${RESET}  ${GREEN}运行中：${stls_running}/${stls_total}${RESET}\n" "$total_stls_cpu"
         else
             echo -e "${YELLOW}ShadowTLS 未安装${RESET}"
         fi
@@ -1071,18 +1215,18 @@ view_snell_config() {
             echo -e "\n${GREEN}Surge 配置格式：${RESET}"
             if [ ! -z "$IPV4_ADDR" ]; then
                 if [ "$snell_version" = "v5" ]; then
-                    echo -e "${GREEN}${IP_COUNTRY_IPV4} = snell, ${IPV4_ADDR}, ${stls_port}, psk = ${psk}, version = 4, reuse = true, tfo = true, shadow-tls-password = ${stls_password}, shadow-tls-sni = ${stls_domain}, shadow-tls-version = 3${RESET}"
-                    echo -e "${GREEN}${IP_COUNTRY_IPV4} = snell, ${IPV4_ADDR}, ${stls_port}, psk = ${psk}, version = 5, reuse = true, tfo = true, shadow-tls-password = ${stls_password}, shadow-tls-sni = ${stls_domain}, shadow-tls-version = 3${RESET}"
+                    echo -e "${GREEN}${IP_COUNTRY_IPV4} = snell, ${IPV4_ADDR}, ${stls_port}, psk = ${psk}, version = 4, reuse = true, tfo = true, shadow-tls-password = ${stls_password}, shadow-tls-sni = ${stls_domain}${RESET}"
+                    echo -e "${GREEN}${IP_COUNTRY_IPV4} = snell, ${IPV4_ADDR}, ${stls_port}, psk = ${psk}, version = 5, reuse = true, tfo = true, shadow-tls-password = ${stls_password}, shadow-tls-sni = ${stls_domain}${RESET}"
                 else
-                    echo -e "${GREEN}${IP_COUNTRY_IPV4} = snell, ${IPV4_ADDR}, ${stls_port}, psk = ${psk}, version = 4, reuse = true, tfo = true, shadow-tls-password = ${stls_password}, shadow-tls-sni = ${stls_domain}, shadow-tls-version = 3${RESET}"
+                    echo -e "${GREEN}${IP_COUNTRY_IPV4} = snell, ${IPV4_ADDR}, ${stls_port}, psk = ${psk}, version = 4, reuse = true, tfo = true, shadow-tls-password = ${stls_password}, shadow-tls-sni = ${stls_domain}${RESET}"
                 fi
             fi
             if [ ! -z "$IPV6_ADDR" ]; then
                 if [ "$snell_version" = "v5" ]; then
-                    echo -e "${GREEN}${IP_COUNTRY_IPV6} = snell, ${IPV6_ADDR}, ${stls_port}, psk = ${psk}, version = 4, reuse = true, tfo = true, shadow-tls-password = ${stls_password}, shadow-tls-sni = ${stls_domain}, shadow-tls-version = 3${RESET}"
-                    echo -e "${GREEN}${IP_COUNTRY_IPV6} = snell, ${IPV6_ADDR}, ${stls_port}, psk = ${psk}, version = 5, reuse = true, tfo = true, shadow-tls-password = ${stls_password}, shadow-tls-sni = ${stls_domain}, shadow-tls-version = 3${RESET}"
+                    echo -e "${GREEN}${IP_COUNTRY_IPV6} = snell, ${IPV6_ADDR}, ${stls_port}, psk = ${psk}, version = 4, reuse = true, tfo = true, shadow-tls-password = ${stls_password}, shadow-tls-sni = ${stls_domain}${RESET}"
+                    echo -e "${GREEN}${IP_COUNTRY_IPV6} = snell, ${IPV6_ADDR}, ${stls_port}, psk = ${psk}, version = 5, reuse = true, tfo = true, shadow-tls-password = ${stls_password}, shadow-tls-sni = ${stls_domain}${RESET}"
                 else
-                    echo -e "${GREEN}${IP_COUNTRY_IPV6} = snell, ${IPV6_ADDR}, ${stls_port}, psk = ${psk}, version = 4, reuse = true, tfo = true, shadow-tls-password = ${stls_password}, shadow-tls-sni = ${stls_domain}, shadow-tls-version = 3${RESET}"
+                    echo -e "${GREEN}${IP_COUNTRY_IPV6} = snell, ${IPV6_ADDR}, ${stls_port}, psk = ${psk}, version = 4, reuse = true, tfo = true, shadow-tls-password = ${stls_password}, shadow-tls-sni = ${stls_domain}${RESET}"
                 fi
             fi
         done <<< "$snell_services"
